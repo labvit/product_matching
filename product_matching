@@ -1,0 +1,110 @@
+# coding=utf8
+import re
+
+import sys
+
+def split_string(line):
+	'''
+	split line in token like:
+	 	qwerty123 -> qwerty 123
+	 	qwerty1234$ -> qwerty 123 $
+	'''
+	return re.sub(r'(\d+|\W+|[a-zA-Z]+)',lambda m: " " + m.group() + " " ,line)
+
+def write_base_file(filename):
+	'''
+	read price list text file  and split by line, each line has a one price record.
+
+	'''
+	lines = open(filename, 'r', encoding='utf-8').readlines()
+
+	# line = u'привет12ккк' #.decode('utf8')
+	with open('output.txt','w', encoding='utf-8') as out_buffer:
+		for line in lines:
+			line = split_string(line)
+			out_buffer.write(line)
+
+def make_hash(word):
+	'''
+	function to make a hash of some word, number
+	'''
+	# print(word)
+	return hash(word)
+
+def get_buffer():
+	'''
+	read a file containg internal representation of pricelist
+
+	'''
+	lines = open('output.txt','r', encoding='utf-8').readlines()
+
+	return [l.lower() for l in lines]
+
+def make_catalog(buffers):
+	'''
+	make a structure to get a lines from buffer
+	catalog key is a integer to speed up search
+	'''
+	catalog = {}
+	for i,line in enumerate(buffers):	
+		for word in line.split():
+			h = make_hash(word)
+			if h not in catalog:
+				catalog[h] = [i]
+			else:
+				catalog[h].append(i)
+	return catalog
+
+
+def make_record(line, i):
+	'''
+	return hash list of line, last element is a number of line into internal buffer or db key
+	'''
+	r = [make_hash(word) for word in split_string(line).split()] + [i]
+	
+	return r
+
+
+def make_records(lines):
+	return [make_record(line,i) for i,line in enumerate(lines)]
+
+def cost(r1,r2):
+	'''
+	return simple similarity of two lines
+	'''
+	r1 = set(r1[:-1])
+	r2 = set(r2[:-1])
+	s = sum([1 for _1 in r1 for _2 in r2 if _1 == _2])
+
+	return s**2 / float(len(r1)) /len(r2)
+
+def ranking(record, records):
+	return sorted([ [cost(r,record), r] for r in records])
+
+def search(line, records, catalog):
+	record = make_record(line,0)
+	id_lines = []
+	[id_lines.extend(catalog[i]) for i in record if i in catalog]
+
+	return sorted(ranking(record, [records[i] for i in list(set(id_lines))]), key= lambda x: -x[0])[:1]
+
+
+
+
+def main(): 
+	'''
+	test of algorithm
+	let search internal buffer in self one
+
+	'''
+	# write_base_file('/path/to/your_price_list')
+	lines = get_buffer()
+	catalog = make_catalog(lines)
+	records = make_records(lines)
+	for i,q in enumerate(lines):
+		l = search(q, records, catalog)[0]
+		if l[1][-1] != i:
+			print("%6.4f -->"%l[0],l[1][-1],i," -- ",q,' --- ',lines[l[1][-1]])
+		# print(l[0])
+if __name__ == '__main__':
+	main()
